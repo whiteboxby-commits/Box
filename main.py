@@ -2,4 +2,4 @@ from fastapi import FastAPI
 app = FastAPI() 
 @app.get("/") 
 def read_root(): 
-return {"message": "Welcome to White Box API"}
+     return {"message": "Welcome to White Box API"}
