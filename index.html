@@ -1,0 +1,837 @@
+<script src="https://unpkg.com/lunr/lunr.js"></script>
+
+<div id="box-search-app">   
+  <style>
+    /* === ОСНОВНЫЕ СТИЛИ И СЕТКА === */
+    #box-search-app {
+      font-family: 'Arial', sans-serif;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      background-color: #fff;
+      color: #202124;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      overflow-x: hidden;
+      box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
+    }
+    #box-search-app * { box-sizing: border-box; }
+
+    /* Верхнее меню */
+    .top-nav {
+      position: absolute;
+      top: 0;
+      right: 0;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      padding: 15px 20px;
+      gap: 15px;
+      width: 100%;
+      z-index: 10;
+    }
+    .cabinet-btn {
+      background-color: #1a73e8;
+      color: #fff;
+      border: none;
+      padding: 9px 22px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+    .cabinet-btn:hover { background-color: #1557b0; }
+    
+    .profile-area {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .profile-name {
+      font-size: 14px;
+      font-weight: bold;
+      color: #3c4043;
+      max-width: 130px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .profile-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background-color: #1a73e8;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: bold;
+      background-size: cover;
+      background-position: center;
+      border: 2px solid #dfe1e5;
+    }
+
+    /* Главная страница */
+    #main-view {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    .main-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 22vh;
+      width: 100%;
+      flex: 1;
+    }
+    .box-logo {
+      font-size: 90px;
+      font-weight: 900;
+      color: #202124;
+      letter-spacing: -3px;
+      cursor: pointer;
+      user-select: none;
+      text-align: center;
+      line-height: 1;
+      margin-bottom: 25px;
+    }
+    .box-logo-small {
+      font-size: 30px;
+      font-weight: 900;
+      color: #202124;
+      cursor: pointer;
+      letter-spacing: -1px;
+      margin-right: 25px;
+    }
+
+    /* Строка поиска и иконки */
+    .search-bar-wrapper { width: 100%; padding: 0 20px; display: flex; justify-content: center; }
+    .search-bar {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      max-width: 584px;
+      height: 46px;
+      border: 1px solid #dfe1e5;
+      border-radius: 24px;
+      padding: 0 14px;
+      transition: 0.2s;
+      background: #fff;
+    }
+    .search-bar:hover, .search-bar.focused { box-shadow: 0 1px 6px rgba(32,33,36,.28); border-color: transparent; }
+    .search-icon-main { fill: #9aa0a6; margin-right: 10px; width: 20px; height: 20px; flex-shrink: 0; cursor: pointer; }
+    .search-input { flex: 1; height: 100%; border: none; outline: none; font-size: 16px; background: transparent; color: #202124; }
+    
+    .search-tools {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-left: 8px;
+    }
+    .search-tools svg {
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .search-tools svg:hover { transform: scale(1.1); }
+
+    .search-buttons { display: flex; justify-content: center; gap: 12px; margin-top: 25px; }
+    .search-buttons button {
+      background-color: #f8f9fa;
+      border: 1px solid #f8f9fa;
+      border-radius: 4px;
+      color: #3c4043;
+      padding: 0 16px;
+      height: 36px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .search-buttons button:hover { border: 1px solid #dadce0; color: #202124; }
+
+    /* ФУТЕР КАК В GOOGLE */
+    .google-footer {
+      background-color: #f2f2f2;
+      color: #70757a;
+      width: 100%;
+      font-size: 14px;
+      margin-top: auto;
+    }
+    .footer-top {
+      padding: 15px 30px;
+      border-bottom: 1px solid #dadce0;
+      color: #202124;
+    }
+    .footer-bottom {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      padding: 0 20px;
+    }
+    .footer-bottom a, .footer-center {
+      color: #70757a;
+      padding: 15px;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .footer-bottom a:hover { color: #202124; text-decoration: underline; }
+    .footer-links-left, .footer-links-right { display: flex; flex-wrap: wrap; }
+    .footer-center { font-weight: bold; color: #1a73e8; }
+
+    /* Результаты поиска */
+    .results-header-container { display: none; flex-direction: column; border-bottom: 1px solid #ebebeb; padding-top: 20px; position: relative; }
+    .results-header-top { display: flex; align-items: center; padding: 0 20px; max-width: 100%; }
+    .results-header-center { flex: 1; display: flex; align-items: center; }
+    
+    .nav-tabs { display: flex; padding-left: 170px; gap: 20px; margin-top: 15px; overflow-x: auto; scrollbar-width: none; }
+    .nav-tabs::-webkit-scrollbar { display: none; }
+    .nav-tab { padding: 10px 0; color: #5f6368; font-size: 14px; cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; user-select: none; }
+    .nav-tab.active { color: #1a0dab; border-bottom: 3px solid #1a0dab; font-weight: bold; }
+    .nav-tab:hover { color: #202124; }
+    
+    .results-container { display: none; padding: 20px 20px 40px 170px; max-width: 1000px; width: 100%; flex: 1; }
+    .results-stats { color: #70757a; font-size: 14px; margin-bottom: 20px; }
+    
+    .result-item { margin-bottom: 28px; width: 100%; max-width: 652px; }
+    .result-url { color: #202124; font-size: 13px; display: block; margin-bottom: 3px; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .result-url cite { font-style: normal; color: #4d5156; }
+    .result-title { color: #1a0dab; font-size: 20px; text-decoration: none; display: inline-block; margin-bottom: 4px; font-weight: 400; }
+    .result-title:hover { text-decoration: underline; }
+    .result-snippet { color: #4d5156; font-size: 14px; line-height: 1.58; word-break: break-word; }
+
+    /* Сетки Картинки/Видео/Новости */
+    .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; width: 100%; max-width: 850px; }
+    .media-card { border-radius: 8px; border: 1px solid #dfe1e5; overflow: hidden; background: #fff; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+    .media-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .media-card img { width: 100%; height: 130px; object-fit: cover; display: block; background: #f1f3f4; }
+    .media-card-info { padding: 10px; font-size: 13px; color: #202124; }
+    .media-card-title { font-weight: bold; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .media-card-sub { font-size: 11px; color: #70757a; }
+
+    /* Пагинация в стиле Google */
+    .pagination { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 40px; padding-bottom: 30px; max-width: 652px; user-select: none; }
+    .pagination-logo { font-size: 28px; font-weight: 900; letter-spacing: -1px; display: flex; align-items: center; margin-right: 10px; }
+    .pagination-logo .b { color: #4285f4; }
+    .pagination-logo .o1 { color: #ea4335; }
+    .pagination-logo .x { color: #34a853; }
+    .page-number { padding: 8px 12px; color: #1a0dab; cursor: pointer; font-size: 14px; border-radius: 4px; font-weight: bold; }
+    .page-number:hover { background: #f1f3f4; text-decoration: underline; }
+    .page-number.active { color: #202124; cursor: default; text-decoration: none; background: #f1f3f4; }
+
+    /* МОДАЛЬНЫЕ ОКНА */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.55); z-index: 9999; justify-content: center; align-items: center; }
+    .modal-content { background: #fff; padding: 35px 30px; border-radius: 12px; width: 100%; max-width: 440px; box-shadow: 0 8px 30px rgba(0,0,0,0.25); position: relative; animation: fadeIn 0.2s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+    .modal-content h2 { text-align: center; margin: 0 0 8px 0; color: #202124; font-size: 22px; font-weight: 600; }
+    .modal-subtitle { text-align: center; color: #5f6368; font-size: 13px; margin-bottom: 20px; }
+    .modal-logo { text-align: center; font-size: 38px; font-weight: 900; color: #202124; margin-bottom: 5px; letter-spacing: -1px; }
+    
+    .form-grid { display: flex; flex-direction: column; gap: 12px; }
+    .form-row { display: flex; gap: 10px; }
+    .form-group { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .form-group label { font-size: 12px; font-weight: bold; color: #3c4043; }
+    .form-group input { width: 100%; padding: 10px 12px; border: 1px solid #dadce0; border-radius: 6px; font-size: 14px; outline: none; transition: 0.2s; }
+    .form-group input:focus { border-color: #1a73e8; box-shadow: 0 0 0 2px rgba(26,115,232,0.2); }
+    
+    .modal-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 25px; }
+    .btn-link { color: #1a73e8; background: none; border: none; cursor: pointer; font-weight: bold; font-size: 13px; padding: 0; text-decoration: none; }
+    .btn-link:hover { text-decoration: underline; }
+    .btn-submit { background: #1a73e8; color: #fff; border: none; padding: 10px 22px; border-radius: 6px; font-weight: bold; font-size: 14px; cursor: pointer; }
+    .btn-submit:hover { background: #1557b0; }
+    .modal-close { position: absolute; top: 15px; right: 18px; cursor: pointer; font-size: 22px; color: #5f6368; line-height: 1; }
+
+    /* Виджет профиля в кабинете */
+    .profile-card { display: flex; flex-direction: column; align-items: center; gap: 15px; text-align: center; }
+    .profile-avatar-big { width: 90px; height: 90px; border-radius: 50%; background: #1a73e8; color: white; display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: bold; background-size: cover; background-position: center; border: 3px solid #e8f0fe; }
+    .profile-details { width: 100%; background: #f8f9fa; border-radius: 8px; padding: 15px; text-align: left; display: flex; flex-direction: column; gap: 8px; font-size: 13px; border: 1px solid #ebebeb; }
+    .profile-details div { display: flex; justify-content: space-between; }
+    .profile-details span { font-weight: bold; color: #202124; }
+
+    /* МОБИЛЬНАЯ АДАПТАЦИЯ */
+    @media (max-width: 768px) {
+      .top-nav { position: fixed; top: 0; right: 0; width: auto; padding: 12px 15px; background: transparent; }
+      .box-logo { font-size: 96px; margin-bottom: 20px; }
+      .box-logo-small { font-size: 34px; margin: 0 0 10px 0; text-align: center; }
+      .main-wrapper { margin-top: 18vh; }
+      
+      .results-header-container { padding-top: 50px; }
+      .results-header-top { flex-direction: column; align-items: center; padding: 0 15px; }
+      .results-header-center { width: 100%; margin-top: 10px; }
+      
+      .nav-tabs { padding-left: 15px; margin-top: 15px; }
+      .results-container { padding: 15px; }
+      .footer-bottom { justify-content: center; flex-direction: column; text-align: center; }
+      .footer-links-left, .footer-links-right { justify-content: center; }
+    }
+  </style>
+
+  <!-- СКРЫТЫЙ ИНПУТ ДЛЯ ЗАГРУЗКИ ФОТОГРАФИЙ (ПОИСК ПО КАРТИНКЕ) -->
+  <input type="file" id="image-search-input" style="display:none;" accept="image/*" onchange="handleImageSearch(event)">
+
+  <!-- ГЛАВНЫЙ ЭКРАН -->
+  <div id="main-view">
+    <div class="top-nav">
+      <button class="cabinet-btn" id="login-btn-main" onclick="openAuthModal()">Войти</button>
+      <div class="profile-area" id="profile-area-main" onclick="openProfileModal()">
+        <span class="profile-name" id="profile-name-main"></span>
+        <div class="profile-avatar" id="profile-avatar-main"></div>
+      </div>
+    </div>
+
+    <div class="main-wrapper">
+      <div class="box-logo" onclick="location.reload()">BOX</div>
+      
+      <div class="search-bar-wrapper">
+        <div class="search-bar" id="main-search-bar">
+          <svg class="search-icon-main" viewBox="0 0 24 24" onclick="triggerSearch(1)"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 14z"></path></svg>
+          <input type="text" class="search-input" id="main-search-input" autocomplete="off" placeholder="Поиск в сети..." autofocus>
+          
+          <div class="search-tools">
+            <!-- Микрофон -->
+            <svg title="Голосовой поиск" onclick="startVoiceSearch()" focusable="false" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="#4285f4" d="m12 15c1.66 0 3-1.31 3-2.97v-7.02c0-1.66-1.34-3.01-3-3.01s-3 1.34-3 3.01v7.02c0 1.66 1.34 2.97 3 2.97z"></path><path fill="#34a853" d="m11 18.08h2v3.92h-2z"></path><path fill="#fbbc05" d="m7.05 16.87c-1.27-1.33-2.05-2.8-2.05-4.87h2c0 1.45.56 2.42 1.47 3.38v.32l-1.15 1.18z"></path><path fill="#ea4335" d="m12 16.93a4.97 5.25 0 0 1 -3.54 -1.55l-1.41 1.49c1.26 1.34 3.02 2.13 4.95 2.13 3.87 0 6.99-2.92 6.99-7h-1.99c0 2.92-2.24 4.93-5 4.93z"></path></svg>
+            <!-- Камера (Ленс) -->
+            <svg title="Поиск по картинке" onclick="startImageSearch()" focusable="false" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M5.5 10V14.5H4V10C4 8.61929 5.11929 7.5 6.5 7.5H11V9H6.5C5.94772 9 5.5 9.44772 5.5 10Z" fill="#ea4335"></path><path d="M18.5 10V14.5H20V10C20 8.61929 18.8807 7.5 17.5 7.5H13V9H17.5C18.0523 9 18.5 9.44772 18.5 10Z" fill="#fbbc05"></path><path d="M5.5 14.5V19H11V20.5H6.5C5.11929 20.5 4 19.3807 4 18V14.5H5.5Z" fill="#4285f4"></path><path d="M18.5 14.5V18C18.5 18.5523 18.0523 19 17.5 19H13V20.5H17.5C18.8807 20.5 20 19.3807 20 18V14.5H18.5Z" fill="#34a853"></path><circle cx="12" cy="14" r="3.5" fill="#4285f4"></circle><circle cx="17.5" cy="18.5" r="1.5" fill="#34a853"></circle></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="search-buttons">
+        <button onclick="triggerSearch(1)">Поиск BOX</button>
+        <button onclick="triggerSearch(1)">Мне повезёт!</button>
+      </div>
+    </div>
+
+    <!-- Футер (Google Style) -->
+    <div class="google-footer">
+      <div class="footer-top">Минск, Беларусь</div>
+      <div class="footer-bottom">
+        <div class="footer-links-left">
+          <a href="#">О White Box</a>
+          <a href="#">Реклама</a>
+          <a href="#">Для бизнеса</a>
+          <a href="#">Как работает поиск</a>
+        </div>
+        <div class="footer-center">White Box - новые технологии</div>
+        <div class="footer-links-right">
+          <a href="#">Конфиденциальность</a>
+          <a href="#">Условия</a>
+          <a href="#">Настройки</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ЭКРАН ВЫДАЧИ РЕЗУЛЬТАТОВ -->
+  <div class="results-header-container" id="results-header">
+    <div class="top-nav" style="position: absolute; top: 10px; right: 10px; background: transparent;">
+      <button class="cabinet-btn" id="login-btn-res" onclick="openAuthModal()">Войти</button>
+      <div class="profile-area" id="profile-area-res" onclick="openProfileModal()">
+        <span class="profile-name" id="profile-name-res"></span>
+        <div class="profile-avatar" id="profile-avatar-res"></div>
+      </div>
+    </div>
+
+    <div class="results-header-top">
+      <div class="box-logo-small" onclick="location.reload()">BOX</div>
+      <div class="results-header-center">
+        <div class="search-bar" id="results-search-bar" style="height: 44px; max-width: 650px;">
+          <input type="text" class="search-input" id="results-search-input" autocomplete="off" style="padding-left:15px;">
+          
+          <div class="search-tools">
+            <svg title="Голосовой поиск" onclick="startVoiceSearch()" focusable="false" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="#4285f4" d="m12 15c1.66 0 3-1.31 3-2.97v-7.02c0-1.66-1.34-3.01-3-3.01s-3 1.34-3 3.01v7.02c0 1.66 1.34 2.97 3 2.97z"></path><path fill="#34a853" d="m11 18.08h2v3.92h-2z"></path><path fill="#fbbc05" d="m7.05 16.87c-1.27-1.33-2.05-2.8-2.05-4.87h2c0 1.45.56 2.42 1.47 3.38v.32l-1.15 1.18z"></path><path fill="#ea4335" d="m12 16.93a4.97 5.25 0 0 1 -3.54 -1.55l-1.41 1.49c1.26 1.34 3.02 2.13 4.95 2.13 3.87 0 6.99-2.92 6.99-7h-1.99c0 2.92-2.24 4.93-5 4.93z"></path></svg>
+            <svg title="Поиск по картинке" onclick="startImageSearch()" focusable="false" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M5.5 10V14.5H4V10C4 8.61929 5.11929 7.5 6.5 7.5H11V9H6.5C5.94772 9 5.5 9.44772 5.5 10Z" fill="#ea4335"></path><path d="M18.5 10V14.5H20V10C20 8.61929 18.8807 7.5 17.5 7.5H13V9H17.5C18.0523 9 18.5 9.44772 18.5 10Z" fill="#fbbc05"></path><path d="M5.5 14.5V19H11V20.5H6.5C5.11929 20.5 4 19.3807 4 18V14.5H5.5Z" fill="#4285f4"></path><path d="M18.5 14.5V18C18.5 18.5523 18.0523 19 17.5 19H13V20.5H17.5C18.8807 20.5 20 19.3807 20 18V14.5H18.5Z" fill="#34a853"></path><circle cx="12" cy="14" r="3.5" fill="#4285f4"></circle><circle cx="17.5" cy="18.5" r="1.5" fill="#34a853"></circle></svg>
+            <svg class="search-icon-main" style="cursor:pointer; margin-left:8px;" viewBox="0 0 24 24" onclick="triggerSearch(1)"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 14z"></path></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-tabs" id="nav-tabs">
+      <div class="nav-tab active" data-tab="all">Все</div>
+      <div class="nav-tab" data-tab="images">Картинки</div>
+      <div class="nav-tab" data-tab="videos">Видео</div>
+      <div class="nav-tab" data-tab="news">Новости</div>
+    </div>
+  </div>
+
+  <div class="results-container" id="results-container">
+    <div class="results-stats" id="results-stats"></div>
+    <div id="results-list"></div>
+    <div class="pagination" id="pagination-wrapper"></div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: ВХОД В КАБИНЕТ -->
+  <div class="modal-overlay" id="login-modal">
+    <div class="modal-content">
+      <div class="modal-close" onclick="closeModals()">✕</div>
+      <div class="modal-logo">BOX</div>
+      <h2>Вход в аккаунт</h2>
+      <div class="modal-subtitle">Используйте ваш единый профиль White Box</div>
+      
+      <form onsubmit="handleLogin(event)" class="form-grid">
+        <div class="form-group">
+          <label>Email или Телефон</label>
+          <input type="text" id="login-email" required placeholder="+375 / +7 или email">
+        </div>
+        <div class="form-group">
+          <label>Пароль</label>
+          <input type="password" id="login-pass" required placeholder="Ваш пароль">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-link" onclick="switchModal('register')">Создать аккаунт</button>
+          <button type="submit" class="btn-submit">Войти</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: РЕГИСТРАЦИЯ -->
+  <div class="modal-overlay" id="register-modal">
+    <div class="modal-content">
+      <div class="modal-close" onclick="closeModals()">✕</div>
+      <div class="modal-logo">BOX</div>
+      <h2>Регистрация</h2>
+      <div class="modal-subtitle">Заполните данные для создания личного кабинета</div>
+      
+      <form onsubmit="handleRegister(event)" class="form-grid">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Имя</label>
+            <input type="text" id="reg-fname" required placeholder="Максим">
+          </div>
+          <div class="form-group">
+            <label>Фамилия</label>
+            <input type="text" id="reg-lname" required placeholder="Сабаних">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Номер телефона</label>
+          <input type="tel" id="reg-phone" required placeholder="+375 (29) 000-00-00">
+        </div>
+        <div class="form-group">
+          <label>Email адреса</label>
+          <input type="email" id="reg-email" required placeholder="user@example.com">
+        </div>
+        <div class="form-group">
+          <label>Пароль</label>
+          <input type="password" id="reg-pass" required placeholder="Придумайте пароль">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-link" onclick="switchModal('login')">Уже есть аккаунт?</button>
+          <button type="submit" class="btn-submit">Зарегистрироваться</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: ЛИЧНЫЙ КАБИНЕТ -->
+  <div class="modal-overlay" id="profile-modal">
+    <div class="modal-content">
+      <div class="modal-close" onclick="closeModals()">✕</div>
+      <div class="modal-logo">BOX</div>
+      <h2>Личный кабинет</h2>
+      <div class="modal-subtitle">Управление аккаунтом и настройками</div>
+      
+      <div class="profile-card">
+        <div class="profile-avatar-big" id="cabinet-avatar"></div>
+        <input type="file" id="avatar-file-input" accept="image/*" style="display:none;" onchange="uploadAvatar(event)">
+        <button type="button" class="btn-link" onclick="document.getElementById('avatar-file-input').click()">Изменить фото профиля</button>
+
+        <div class="profile-details">
+          <div>Имя и Фамилия: <span id="cab-fullname">-</span></div>
+          <div>Телефон: <span id="cab-phone">-</span></div>
+          <div>Email: <span id="cab-email">-</span></div>
+          <div>Статус: <span style="color:#34a853;">Активен</span></div>
+        </div>
+
+        <div style="width:100%; display:flex; justify-content:flex-end; margin-top:10px;">
+          <button type="button" class="btn-submit" style="background:#dc3545;" onclick="logout()">Выйти из аккаунта</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И СОСТОЯНИЕ ---
+    let currentQuery = '';
+    let currentTab = 'all';
+    let currentPage = 1;
+    let allSearchResults = []; 
+    const RESULTS_PER_PAGE = 10;
+
+    let currentUser = JSON.parse(localStorage.getItem('box_user')) || null;
+
+    const mainInput = document.getElementById('main-search-input');
+    const resultsInput = document.getElementById('results-search-input');
+
+    // Синхронизация инпутов
+    mainInput.addEventListener('input', e => resultsInput.value = e.target.value);
+    resultsInput.addEventListener('input', e => mainInput.value = e.target.value);
+    mainInput.addEventListener('keypress', e => { if (e.key === 'Enter') triggerSearch(1); });
+    resultsInput.addEventListener('keypress', e => { if (e.key === 'Enter') triggerSearch(1); });
+
+    const attachFocus = (input, barId) => {
+      input.addEventListener('focus', () => document.getElementById(barId).classList.add('focused'));
+      input.addEventListener('blur', () => document.getElementById(barId).classList.remove('focused'));
+    };
+    attachFocus(mainInput, 'main-search-bar');
+    attachFocus(resultsInput, 'results-search-bar');
+
+    // --- ФУНКЦИИ ГОЛОСОВОГО ПОИСКА И ПОИСКА ПО ФОТО ---
+    function startVoiceSearch() {
+      if ('webkitSpeechRecognition' in window) {
+        const recognition = new webkitSpeechRecognition();
+        recognition.lang = 'ru-RU';
+        recognition.onstart = function() {
+          mainInput.placeholder = 'Слушаю вас...';
+          resultsInput.placeholder = 'Слушаю вас...';
+        };
+        recognition.onresult = function(event) {
+          const transcript = event.results[0][0].transcript;
+          mainInput.value = transcript;
+          resultsInput.value = transcript;
+          triggerSearch(1);
+        };
+        recognition.onend = function() {
+          mainInput.placeholder = 'Поиск в сети...';
+          resultsInput.placeholder = '';
+        };
+        recognition.start();
+      } else {
+        alert('К сожалению, ваш браузер не поддерживает встроенный голосовой поиск.');
+      }
+    }
+
+    function startImageSearch() {
+      document.getElementById('image-search-input').click();
+    }
+
+    function handleImageSearch(event) {
+      const file = event.target.files[0];
+      if(file) {
+        mainInput.value = 'Поиск по изображению: ' + file.name;
+        resultsInput.value = mainInput.value;
+        triggerSearch(1);
+      }
+    }
+
+    // --- КЛИКАБЕЛЬНОЕ МЕНЮ ВКЛАДОК ПОИСКА ---
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentTab = tab.getAttribute('data-tab');
+        renderTabContent();
+      });
+    });
+
+    // --- СИСТЕМА АВТОРИЗАЦИИ И ЛИЧНОГО КАБИНЕТА ---
+    function updateAuthUI() {
+      const loginBtns = [document.getElementById('login-btn-main'), document.getElementById('login-btn-res')];
+      const profileAreas = [document.getElementById('profile-area-main'), document.getElementById('profile-area-res')];
+
+      if (currentUser) {
+        loginBtns.forEach(btn => btn.style.display = 'none');
+        profileAreas.forEach(area => area.style.display = 'flex');
+
+        const initials = `${currentUser.firstName[0] || ''}${currentUser.lastName[0] || ''}`.toUpperCase();
+        
+        ['main', 'res'].forEach(suf => {
+          document.getElementById(`profile-name-${suf}`).textContent = `${currentUser.firstName} ${currentUser.lastName}`;
+          const av = document.getElementById(`profile-avatar-${suf}`);
+          if (currentUser.avatar) {
+            av.style.backgroundImage = `url(${currentUser.avatar})`;
+            av.textContent = '';
+          } else {
+            av.style.backgroundImage = 'none';
+            av.textContent = initials;
+          }
+        });
+
+        document.getElementById('cab-fullname').textContent = `${currentUser.firstName} ${currentUser.lastName}`;
+        document.getElementById('cab-phone').textContent = currentUser.phone;
+        document.getElementById('cab-email').textContent = currentUser.email;
+        const cabAv = document.getElementById('cabinet-avatar');
+        if (currentUser.avatar) {
+          cabAv.style.backgroundImage = `url(${currentUser.avatar})`;
+          cabAv.textContent = '';
+        } else {
+          cabAv.style.backgroundImage = 'none';
+          cabAv.textContent = initials;
+        }
+      } else {
+        loginBtns.forEach(btn => btn.style.display = 'block');
+        profileAreas.forEach(area => area.style.display = 'none');
+      }
+    }
+
+    function openAuthModal() { document.getElementById('login-modal').style.display = 'flex'; }
+    function openProfileModal() { document.getElementById('profile-modal').style.display = 'flex'; }
+    function closeModals() {
+      document.getElementById('login-modal').style.display = 'none';
+      document.getElementById('register-modal').style.display = 'none';
+      document.getElementById('profile-modal').style.display = 'none';
+    }
+    function switchModal(type) {
+      closeModals();
+      if (type === 'login') document.getElementById('login-modal').style.display = 'flex';
+      if (type === 'register') document.getElementById('register-modal').style.display = 'flex';
+    }
+
+    function handleRegister(e) {
+      e.preventDefault();
+      currentUser = {
+        firstName: document.getElementById('reg-fname').value.trim(),
+        lastName: document.getElementById('reg-lname').value.trim(),
+        phone: document.getElementById('reg-phone').value.trim(),
+        email: document.getElementById('reg-email').value.trim(),
+        avatar: null
+      };
+      localStorage.setItem('box_user', JSON.stringify(currentUser));
+      updateAuthUI();
+      closeModals();
+      alert('Регистрация прошла успешно! Добро пожаловать.');
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value.trim();
+      currentUser = {
+        firstName: 'Максим',
+        lastName: 'Сабаних',
+        phone: '+375 (29) 123-45-67',
+        email: email,
+        avatar: null
+      };
+      localStorage.setItem('box_user', JSON.stringify(currentUser));
+      updateAuthUI();
+      closeModals();
+    }
+
+    function uploadAvatar(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          currentUser.avatar = evt.target.result;
+          localStorage.setItem('box_user', JSON.stringify(currentUser));
+          updateAuthUI();
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function logout() {
+      currentUser = null;
+      localStorage.removeItem('box_user');
+      updateAuthUI();
+      closeModals();
+    }
+
+    // --- ДВИЖОК ПОИСКА (ГЛОБАЛЬНЫЙ МАССИВ САЙТОВ) ---
+    async function triggerSearch(page = 1) {
+      const query = mainInput.value.trim() || resultsInput.value.trim();
+      if (!query) return;
+
+      currentQuery = query;
+      currentPage = page;
+
+      document.getElementById('main-view').style.display = 'none';
+      document.getElementById('results-header').style.display = 'flex';
+      document.getElementById('results-container').style.display = 'block';
+
+      if (allSearchResults.length === 0 || allSearchResults.query !== query) {
+        document.getElementById('results-list').innerHTML = '<div style="padding:30px; color:#1a73e8; font-size:16px;">Поиск по белорусским, российским и международным ресурсам...</div>';
+        await fetchAllResults(query);
+      }
+
+      renderTabContent();
+    }
+
+    async function fetchAllResults(query) {
+      try {
+        const startTime = performance.now();
+        const response = await fetch(`https://ru.wikipedia.org/w/api.php?action=query&list=search&prop=info&inprop=url&utf8=&format=json&origin=*&srlimit=50&srsearch=${encodeURIComponent(query)}`);
+        const data = await response.json();
+        const endTime = performance.now();
+
+        // База: ~60 белорусских, ~60 российских, плюс глобальные сайты
+        const globalDomains = [
+          // Беларусь
+          'onliner.by', 'kufar.by', 'av.by', 'myfin.by', '21vek.by', 'belta.by', 'zerkalo.io', 'dev.by', 
+          'abw.by', 'realt.by', 'relax.by', '103.by', 'oz.by', 'e-dostavka.by', 'wildberries.by', 
+          'slivki.by', 'deal.by', 'domovita.by', 'afisha.relax.by', 'ticketpro.by', 'kvitki.by', 'sb.by', 
+          'tochka.by', 'officelife.media', 'auto.onliner.by', 's13.ru', 'virtualbrest.ru', 'progomel.by', 
+          'vkurier.by', 'belarus.by', 'nbrb.by', 'belpost.by', 'belavia.by', 'rw.by', 'minsk.gov.by', 
+          'belarusbank.by', 'priorbank.by', 'mtbank.by', 'alfabank.by', 'vtb.by', 'sber-bank.by', 
+          'bsb.by', 'dabrabyt.by', 'belagroprombank.by', 'paritetbank.by', 'bnb.by', 'rrr.by', 
+          '5element.by', 'elektroila.by', 'amd.by', '7745.by', 'tvr.by', 'ont.by', 'ctv.by', 'belmir.by',
+           'yandex.ru', 'vk.com', 'mail.ru', 'avito.ru', 'wildberries.ru', 'ozon.ru', 'sberbank.ru', 
+          'tinkoff.ru', 'lenta.ru', 'ria.ru', 'pikabu.ru', 'drom.ru', 'rbc.ru', 'kinopoisk.ru', 'hh.ru', 
+          'auto.ru', 'dns-shop.ru', 'vc.ru', 'habr.com', 'kommersant.ru', 'vedomosti.ru', 'kp.ru', 
+          'mk.ru', 'aif.ru', 'gazeta.ru', 'fontanka.ru', 'e1.ru', 'ngs.ru', 'ivi.ru', 'okko.tv', 
+          'premier.one', 'rutube.ru', 'dzen.ru', 'telegram.org', 'gosuslugi.ru', 'nalog.gov.ru', 
+          'mos.ru', 'pochta.ru', 'rzd.ru', 'aeroflot.ru', 's7.ru', 'utair.ru', 'mvideo.ru', 'eldorado.ru', 
+          'citilink.ru', 'sportmaster.ru', 'lamoda.ru', 'letu.ru', 'goldapple.ru', 'magnit.ru', 
+          '5ka.ru', 'perekrestok.ru', 'rt.com', 'tass.ru', 'interfax.ru', 'smotrim.ru', 'ru.wikipedia.org'
+        ];
+
+        // Перемешиваем домены для выдачи
+        allSearchResults = data.query.search.map((item, idx) => {
+          const domain = globalDomains[idx % globalDomains.length];
+          
+          // Прямая ссылка на главную страницу домена без параметров поиска
+          let targetUrl = `https://${domain}/`;
+          if (domain === 'ru.wikipedia.org' || domain === 'wikipedia.org') {
+             targetUrl = `https://ru.wikipedia.org/?curid=${item.pageid}`;
+          }
+
+          return {
+            title: item.title,
+            snippet: item.snippet.replace(/<\/?span[^>]*>/g, ""),
+            url: targetUrl,
+            displayUrl: `https://${domain}/`,
+            domain: domain,
+            pageid: item.pageid
+          };
+        });
+
+        // Фолбек если результатов с вики не вернулось
+        if (allSearchResults.length === 0) {
+            for(let i=0; i<50; i++) {
+                let domain = globalDomains[i % globalDomains.length];
+                allSearchResults.push({
+                    title: `Результаты по вашему запросу: ${query}`,
+                    snippet: `Найдены актуальные материалы и статьи по запросу "${query}" на сайте ${domain}. Ознакомьтесь с подробной информацией...`,
+                    url: `https://${domain}/`,
+                    displayUrl: `https://${domain}/`,
+                    domain: domain,
+                    pageid: i
+                });
+            }
+        }
+
+        allSearchResults.query = query;
+        allSearchResults.searchTime = ((endTime - startTime) / 1000).toFixed(2);
+        allSearchResults.totalHits = data.query.searchinfo.totalhits || 50000;
+
+      } catch (err) {
+        console.error("Ошибка поиска:", err);
+        allSearchResults = [];
+      }
+    }
+
+    function renderTabContent() {
+      const list = document.getElementById('results-list');
+      const stats = document.getElementById('results-stats');
+      const paginationWrapper = document.getElementById('pagination-wrapper');
+
+      list.innerHTML = '';
+      paginationWrapper.innerHTML = '';
+
+      if (currentTab === 'all') {
+        stats.innerHTML = `Найдено примерно ${(allSearchResults.totalHits * 18).toLocaleString('ru-RU')} результатов (${allSearchResults.searchTime || '0.24'} сек.)`;
+
+        const startIndex = (currentPage - 1) * RESULTS_PER_PAGE;
+        const pageResults = allSearchResults.slice(startIndex, startIndex + RESULTS_PER_PAGE);
+
+        if (pageResults.length === 0) {
+          list.innerHTML = `<p>По запросу <b>${currentQuery}</b> ничего не найдено.</p>`;
+          return;
+        }
+
+        pageResults.forEach(item => {
+          list.innerHTML += `
+            <div class="result-item">
+              <a href="${item.url}" class="result-url" target="_blank">${item.displayUrl}</a>
+              <a href="${item.url}" class="result-title" target="_blank">${item.title}</a>
+              <div class="result-snippet">${item.snippet}...</div>
+            </div>`;
+        });
+
+        renderPagination(Math.ceil(allSearchResults.length / RESULTS_PER_PAGE));
+      } 
+      else if (currentTab === 'images') {
+        stats.innerHTML = `Найдено изображений: по запросу «${currentQuery}»`;
+        let gridHTML = '<div class="media-grid">';
+        allSearchResults.slice(0, 16).forEach((item, i) => {
+          const imgUrl = `https://picsum.photos/seed/${item.pageid + i}/300/200`;
+          gridHTML += `
+            <div class="media-card" onclick="window.open('${item.url}', '_blank')">
+              <img src="${imgUrl}" alt="${item.title}">
+              <div class="media-card-info">
+                <div class="media-card-title">${item.title}</div>
+                <div class="media-card-sub">${item.domain}</div>
+              </div>
+            </div>`;
+        });
+        gridHTML += '</div>';
+        list.innerHTML = gridHTML;
+      }
+      else if (currentTab === 'videos') {
+        stats.innerHTML = `Найдено видеоклипов: по запросу «${currentQuery}»`;
+        let gridHTML = '<div class="media-grid">';
+        allSearchResults.slice(0, 12).forEach((item, i) => {
+          const imgUrl = `https://picsum.photos/seed/${item.pageid + i + 100}/300/200`;
+          gridHTML += `
+            <div class="media-card" onclick="window.open('${item.url}', '_blank')">
+              <div style="position:relative;">
+                <img src="${imgUrl}">
+                <div style="position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.8); color:white; font-size:10px; padding:2px 6px; border-radius:3px;">14:20</div>
+              </div>
+              <div class="media-card-info">
+                <div class="media-card-title">${item.title}</div>
+                <div class="media-card-sub">YouTube / ${item.domain}</div>
+              </div>
+            </div>`;
+        });
+        gridHTML += '</div>';
+        list.innerHTML = gridHTML;
+      }
+      else if (currentTab === 'news') {
+        stats.innerHTML = `Свежие новости и публикации по запросу «${currentQuery}»`;
+        allSearchResults.slice(0, 8).forEach(item => {
+          list.innerHTML += `
+            <div class="result-item" style="border-left: 3px solid #1a73e8; padding-left: 12px;">
+              <a href="${item.url}" class="result-url" target="_blank">${item.domain} › Новости</a>
+              <a href="${item.url}" class="result-title" target="_blank">${item.title}: Главные события дня</a>
+              <div class="result-snippet">${item.snippet}...</div>
+            </div>`;
+        });
+      }
+    }
+
+    function renderPagination(totalPages) {
+      if (totalPages <= 1) return;
+      const paginationWrapper = document.getElementById('pagination-wrapper');
+      
+      // Пагинация с одним О (Box)
+      let html = `
+        <div class="pagination-logo">
+          <span class="b">B</span>
+          <span class="o1">o</span>
+          <span class="x">x</span>
+        </div>`;
+      for (let i = 1; i <= totalPages; i++) {
+        const activeClass = (i === currentPage) ? 'active' : '';
+        html += `<div class="page-number ${activeClass}" onclick="goToPage(${i})">${i}</div>`;
+      }
+      paginationWrapper.innerHTML = html;
+    }
+
+    function goToPage(page) {
+      currentPage = page;
+      renderTabContent();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    updateAuthUI();
+  </script>
+</div>
